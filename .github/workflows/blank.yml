@@ -1,0 +1,11 @@
+name: Multiline Workflow
+on: workflow_dispatch
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  runs-on: ubuntu-latest
+    steps:
+      - name: Run a Multiline script
+        run: |
+            echo "Hello, world!"
+            echo "Good bye"
