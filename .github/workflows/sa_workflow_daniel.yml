@@ -1,4 +1,4 @@
-name: Create Tenant
+name: Create Tenant Daniel
 
 on:
   workflow_dispatch:
