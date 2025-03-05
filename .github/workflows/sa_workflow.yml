@@ -1,28 +1,62 @@
-name: Create New Branch
+#name: Create New Branch
+
+#on:
+#  workflow_dispatch:
+#    inputs:
+#      branch_name:
+#        description: 'Name of the new branch'
+#        required: true
+#        type: string
+#  push:
+#    branches:
+#      - main
+
+#jobs:
+#  create_branch:
+#    runs-on: ubuntu-latest
+
+#    steps:
+#      - name: Checkout repository
+#        uses: actions/checkout@v4
+
+#      - name: Create new branch
+#        run: |
+#          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+#          git config --global user.name "GitHub Actions"
+#          git checkout -b ${{ github.event.inputs.branch_name || 'new-feature-branch' }}
+#          git push origin ${{ github.event.inputs.branch_name || 'new-feature-branch' }}
+
+
+name: Create File
 
 on:
   workflow_dispatch:
     inputs:
-      branch_name:
-        description: 'Name of the new branch'
+      file_name:
+        description: 'Name of the file to create'
         required: true
-        type: string
-  push:
-    branches:
-      - main
+        default: 'newfile.txt'
+      file_content:
+        description: 'Content to write into the file'
+        required: true
 
 jobs:
-  create_branch:
+  create_file:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create new branch
+      - name: Create file with input content
         run: |
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          echo "${{ inputs.file_content }}" > ${{ inputs.file_name }}
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
-          git checkout -b ${{ github.event.inputs.branch_name || 'new-feature-branch' }}
-          git push origin ${{ github.event.inputs.branch_name || 'new-feature-branch' }}
+          git add ${{ inputs.file_name }}
+          git commit -m "Add new file: ${{ inputs.file_name }}"
+          git push origin HEAD
 
