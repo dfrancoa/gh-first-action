@@ -45,7 +45,7 @@ jobs:
           git config --global user.email "action@github.com"
       - name: Update main kustomization.yaml
         run: |
-          KUSTOMIZATION_PATH="apps/acp-sa-import/overlays/prod/us-east-1/kustomization.yaml"
+          KUSTOMIZATION_PATH="~/apps/acp-sa-import/overlays/prod/us-east-1/kustomization.yaml"
           if [ -f "$KUSTOMIZATION_PATH" ]; then
             sed -i "/resources:/a \ \ - ${{ github.event.inputs.organization }}" "$KUSTOMIZATION_PATH"
             echo "Updated $KUSTOMIZATION_PATH"
@@ -55,12 +55,12 @@ jobs:
           fi
       - name: Create organization directory
         run: |
-          ORG_DIR="apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}"
+          ORG_DIR="~/apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}"
           mkdir -p "$ORG_DIR"
           echo "Created directory: $ORG_DIR"
       - name: Create JWKS file
         run: |
-          JWKS_FILE="apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}/jwks.json"
+          JWKS_FILE="~/apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}/jwks.json"
           cat > "$JWKS_FILE" << EOF
           "${{ github.event.inputs.jwks-file }}"
           #{
