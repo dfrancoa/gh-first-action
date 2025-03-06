@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: acp-sa-import
+resources:
+  - ../base
+  - integration
+  - saturnqa
+  - smoktest2024
+  - devops4254
+  - childrenshos
+  - fosterandpar
+  - oneokinc
+  - jasonstreet
+  - saga
+  - autonationin
+  - worldtravelh
+  - demo11
+  - primedmcedev
+  - pcbdev
+  - unisysdata
+  - secureauthsq
