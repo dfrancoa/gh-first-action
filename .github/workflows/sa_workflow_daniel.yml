@@ -47,7 +47,8 @@ jobs:
         run: |
           KUSTOMIZATION_PATH="apps/acp-sa-import/overlays/prod/us-east-1/kustomization.yaml"
           if [ -f "$KUSTOMIZATION_PATH" ]; then
-            sed -i "/resources:/a \ \ - ${{ github.event.inputs.organization }}" "$KUSTOMIZATION_PATH"
+          #sed -i "/resources:/a \ \ - ${{ github.event.inputs.organization }}" "$KUSTOMIZATION_PATH"
+            sed -i "/..base/a \ \ - ${{ github.event.inputs.organization }}" "$KUSTOMIZATION_PATH"
             echo "Updated $KUSTOMIZATION_PATH"
           else
             echo "Error: $KUSTOMIZATION_PATH does not exist"
@@ -61,17 +62,8 @@ jobs:
       - name: Create JWKS file
         run: |
           JWKS_FILE="apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}/jwks.json"
-          cat > "$JWKS_FILE" << EOF
-          "${{ github.event.inputs.jwks-file }}"
-          #{
-          #  "kty": "${{ github.event.inputs.jwks-kty }}",
-          #  "use": "${{ github.event.inputs.jwks-use }}",
-          #  "alg": "${{ github.event.inputs.jwks-alg }}",
-          #  "kid": "${{ github.event.inputs.jwks-kid }}",
-          #  "n": "${{ github.event.inputs.jwks-n }}",
-          #  "e": "${{ github.event.inputs.jwks-e }}"
-          #}
-          EOF
+          echo "Creating file at $JWKS_FILE"
+          echo -e "${{ github.event.inputs.jwks-file }}" >> "$JWKS_FILE"
           echo "Created JWKS file: $JWKS_FILE"
       - name: Create organization kustomization file
         run: |
@@ -80,7 +72,7 @@ jobs:
           apiVersion: kustomize.config.k8s.io/v1beta1
           kind: Kustomization
           namespace: acp-sa-import
-          nameSuffix: -"${{ github.event.inputs.organization }}"
+          nameSuffix: -${{ github.event.inputs.organization }}
           resources:
             - ../../../../base/job.yaml
           configMapGenerator:
