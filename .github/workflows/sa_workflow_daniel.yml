@@ -64,7 +64,7 @@ jobs:
           JWKS_FILE="apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}/jwks.json"
           echo "Creating file at $JWKS_FILE"
           JWKS_FILE_CONTENT="${{ github.event.inputs.jwks-file }}"
-          echo -e "$JWKS_FILE_CONTENT" |"sed \
+          echo -e "$JWKS_FILE_CONTENT" | sed \
           -e 's/"/\\"/g' \
           -e '1s/^\(.\)/\1\n/' \
           -e 's/,/\,\n/g' \
