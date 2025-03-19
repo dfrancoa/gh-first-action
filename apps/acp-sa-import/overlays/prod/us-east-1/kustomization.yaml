@@ -4,6 +4,7 @@ namespace: acp-sa-import
 resources:
   - devopstest
   - ../base
+  - devopstest17
   - devopstest15
   - devopstest12
   - devopstest11
