@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: acp-sa-import
+nameSuffix: -devopstest7
+resources:
+  - ../../../../base/job.yaml
+configMapGenerator:
+  - name: envs
+    literals:
+      - TENANT_ID=saidp-devopstest7
+      - ORGANIZATION=devopstest7
+    files:
+      - JWKS_KEYS=jwks.json
+      - CA=../saidp-intermediate-cas.pem
