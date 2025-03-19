@@ -64,9 +64,9 @@ jobs:
           JWKS_FILE="apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}/jwks.json"
           echo -e '${{ github.event.inputs.jwks-file }}' > "$JWKS_FILE"
           cat "$JWKS_FILE"
-          #sed -i '1s/^\(.\)/\1\n/' "$JWKS_FILE" 
-          sed -i '1s/^(.)(.*)/\1\n\2/; s/,/\n&,/g' "$JWKS_FILE" 
-          #cat "$JWKS_FILE"
+          sed -i '1s/^\(.\)/\1\n/' "$JWKS_FILE" 
+          sed -i 's/,/&\n/g' "$JWKS_FILE"
+          cat "$JWKS_FILE"
       - name: Create organization kustomization file    
         run: |
           ORG_KUSTOMIZATION="apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}/kustomization.yaml"
