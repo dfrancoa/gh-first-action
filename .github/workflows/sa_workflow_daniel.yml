@@ -1,4 +1,4 @@
-name: Create Tenant Daniel
+name: Create Tenan V2t
 
 on:
   workflow_dispatch:
@@ -12,25 +12,6 @@ on:
       jwks-file:
         description: 'content of jwks-json file, use \n for every new line'
         required: true
-
-        # jwks-kty:
-        # description: 'JWKS key type (kty)'
-        #required: true
-        # jwks-use:
-        #description: 'JWKS key use (use)'
-        # required: true
-        # jwks-alg:
-        # description: 'JWKS algorithm (alg)'
-        # required: true
-        # jwks-kid:
-        # description: 'JWKS key ID (kid)'
-        # required: true
-        # jwks-n:
-        # description: 'JWKS modulus (n)'
-        # required: true
-        # jwks-e:
-        # description: 'JWKS exponent (e)'
-        # required: true
 
 jobs:
   create-tenant:
@@ -66,7 +47,6 @@ jobs:
           cat "$JWKS_FILE"
           sed -i '1s/^\(.\)/\1\n/' "$JWKS_FILE" 
           sed -i 's/,/&\n/g' "$JWKS_FILE"
-          #sed -i 's/}/&\n}/' "$JWKS_FILE"
           sed -i 's/}/\n}/' "$JWKS_FILE"
           cat "$JWKS_FILE"
       - name: Create organization kustomization file    
