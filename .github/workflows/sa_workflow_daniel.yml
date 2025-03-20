@@ -1,4 +1,4 @@
-name: Create Tenan V2t
+name: Create Tenant V2
 
 on:
   workflow_dispatch:
