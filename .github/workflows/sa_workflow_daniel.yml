@@ -3,6 +3,9 @@ name: Create Tenant V2
 on:
   workflow_dispatch:
     inputs:
+      branch_name:
+        description: "Branch where you will create the CE tenant"
+        requiered: true
       tenant-name:
         description: 'Name of the tenant'
         required: true
@@ -17,6 +20,12 @@ jobs:
   create-tenant:
     runs-on: ubuntu-latest
     steps:
+      - name: Fail if branch is empty
+        if: ${{ github.event.inputs.branch_name == ' ' }}
+        run: |
+          echo "Error: Branch name is requiered, can't be empty!" >&2
+          exit 1
+          
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -24,6 +33,7 @@ jobs:
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
+
       - name: Update main kustomization.yaml
         run: |
           KUSTOMIZATION_PATH="apps/acp-sa-import/overlays/prod/us-east-1/kustomization.yaml"
@@ -35,11 +45,13 @@ jobs:
             echo "Error: $KUSTOMIZATION_PATH does not exist"
             exit 1
           fi
+
       - name: Create organization directory
         run: |
           ORG_DIR="apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}"
           mkdir -p "$ORG_DIR"
           echo "Created directory: $ORG_DIR"
+
       - name: Create JWKS file
         run: |
           JWKS_FILE="apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}/jwks.json"
@@ -49,6 +61,7 @@ jobs:
           sed -i 's/,/&\n/g' "$JWKS_FILE"
           sed -i 's/}/\n}/' "$JWKS_FILE"
           cat "$JWKS_FILE"
+
       - name: Create organization kustomization file    
         run: |
           ORG_KUSTOMIZATION="apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}/kustomization.yaml"
@@ -69,6 +82,7 @@ jobs:
                 - CA=../saidp-intermediate-cas.pem
           EOF
           echo "Created kustomization file: $ORG_KUSTOMIZATION"
+
       - name: Commit changes
         run: |
           git add .
