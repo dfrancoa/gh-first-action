@@ -25,6 +25,11 @@ jobs:
         run: |
           echo "Error: Branch name is requiered, can't be empty!" >&2
           exit 1
+
+     - name: Checkout code for specified branch
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.branch_name }}    
           
       - name: Checkout code
         uses: actions/checkout@v3
