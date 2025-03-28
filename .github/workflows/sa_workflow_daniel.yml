@@ -13,7 +13,7 @@ on:
         description: 'Organization identifier'
         required: true
       jwks-file:
-        description: 'content of jwks-json file, use \n for every new line'
+        description: 'content of jwks-json file'
         required: true
 
 jobs:
