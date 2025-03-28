@@ -21,16 +21,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Fail if branch is empty
-        if: ${{ github.event.inputs.branch_name == ' ' }}
+        if: ${{ github.event.inputs.branch_name == '' || github.event.inputs.branch_name == null }}
         run: |
           echo "Error: Branch name is requiered, can't be empty!" >&2
           exit 1
 
-     - name: Checkout code for specified branch
+      - name: Checkout code for specified branch
         uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.inputs.branch_name }}    
-          
+          ref: ${{ github.event.inputs.branch_name }}
+
       - name: Checkout code
         uses: actions/checkout@v3
 
