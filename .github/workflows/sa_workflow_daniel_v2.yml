@@ -1,0 +1,95 @@
+name: Create Tenant Push Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch_name:
+        description: "Branch where you will create the CE tenant"
+        required: true
+      tenant-name:
+        description: 'Name of the tenant'
+        required: true
+      organization:
+        description: 'Organization identifier'
+        required: true
+      jwks-file:
+        description: 'content of jwks-json file'
+        required: true
+
+jobs:
+  create-tenant:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if branch is empty
+        if: ${{ github.event.inputs.branch_name == '' || github.event.inputs.branch_name == null }}
+        run: |
+          echo "Error: Branch name is required, can't be empty!" >&2
+          exit 1
+
+      - name: Checkout code for specified branch
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.branch_name }}    
+          
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Git
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+
+      - name: Update main kustomization.yaml
+        run: |
+          KUSTOMIZATION_PATH="apps/acp-sa-import/overlays/prod/us-east-1/kustomization.yaml"
+          if [ -f "$KUSTOMIZATION_PATH" ]; then
+          #sed -i "/resources:/a \ \ - ${{ github.event.inputs.organization }}" "$KUSTOMIZATION_PATH"
+            sed -i "/..base/a \ \ - ${{ github.event.inputs.organization }}" "$KUSTOMIZATION_PATH"
+            echo "Updated $KUSTOMIZATION_PATH"
+          else
+            echo "Error: $KUSTOMIZATION_PATH does not exist"
+            exit 1
+          fi
+
+      - name: Create organization directory
+        run: |
+          ORG_DIR="apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}"
+          mkdir -p "$ORG_DIR"
+          echo "Created directory: $ORG_DIR"
+
+      - name: Create JWKS file
+        run: |
+          JWKS_FILE="apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}/jwks.json"
+          echo -e '${{ github.event.inputs.jwks-file }}' > "$JWKS_FILE"
+          cat "$JWKS_FILE"
+          sed -i '1s/^\(.\)/\1\n/' "$JWKS_FILE" 
+          sed -i 's/,/&\n/g' "$JWKS_FILE"
+          sed -i 's/}/\n}/' "$JWKS_FILE"
+          cat "$JWKS_FILE"
+
+      - name: Create organization kustomization file    
+        run: |
+          ORG_KUSTOMIZATION="apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}/kustomization.yaml"
+          cat > "$ORG_KUSTOMIZATION" << EOF
+          apiVersion: kustomize.config.k8s.io/v1beta1
+          kind: Kustomization
+          namespace: acp-sa-import
+          nameSuffix: -${{ github.event.inputs.organization }}
+          resources:
+            - ../../../../base/job.yaml
+          configMapGenerator:
+            - name: envs
+              literals:
+                - TENANT_ID=${{ github.event.inputs.tenant-name }}
+                - ORGANIZATION=${{ github.event.inputs.organization }}
+              files:
+                - JWKS_KEYS=jwks.json
+                - CA=../saidp-intermediate-cas.pem
+          EOF
+          echo "Created kustomization file: $ORG_KUSTOMIZATION"
+
+      - name: Commit changes
+        run: |
+          git add .
+          git commit -m "Create tenant ${{ github.event.inputs.tenant-name }} for organization ${{ github.event.inputs.organization }}"
+          git push
