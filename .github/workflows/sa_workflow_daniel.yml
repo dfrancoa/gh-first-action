@@ -5,7 +5,7 @@ on:
     inputs:
       branch_name:
         description: "Branch where you will create the CE tenant"
-        requiered: true
+        required: true
       tenant-name:
         description: 'Name of the tenant'
         required: true
@@ -23,7 +23,7 @@ jobs:
       - name: Fail if branch is empty
         if: ${{ github.event.inputs.branch_name == '' || github.event.inputs.branch_name == null }}
         run: |
-          echo "Error: Branch name is requiered, can't be empty!" >&2
+          echo "Error: Branch name is required, can't be empty!" >&2
           exit 1
 
       - name: Checkout code for specified branch
