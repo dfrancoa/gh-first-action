@@ -36,25 +36,25 @@ jobs:
     steps:
       # Making sure all variables are entered
       - name: Fail if branch is empty
-        if: ${{ $branch-name == '' || branch-name == null }}
+        if: ${{ env.branch-name == '' || env.branch-name == null }}
         run: |
           echo "Error: Branch name is required, can't be empty!" >&2
           exit 1
 
       - name: Fail if tenant name is empty
-        if: ${{ tenant-name == '' || tenant-name  == null }}
+        if: ${{ env.tenant-name == '' || env.tenant-name  == null }}
         run: |
           echo "Error: Tenant name is required, can't be empty!" >&2
           exit 1
 
       - name: Fail if organization name is empty
-        if: ${{ organization == '' || organization  == null }}
+        if: ${{ env.organization == '' || env.organization  == null }}
         run: |
           echo "Error: Organization is required, can't be empty!" >&2
           exit 1
 
       - name: Fail if jwks key is empty
-        if: ${{ jwks-file == '' || jwks-file  == null }}
+        if: ${{ env.jwks-file == '' || env.jwks-file  == null }}
         run: |
           echo "Error: JWKS key information is required, can't be empty!" >&2
           exit 1
