@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: acp-sa-import
 resources:
   - ../base
+  - devopstest25
   - devopstest
   - devopstest20
   - devopstest18
