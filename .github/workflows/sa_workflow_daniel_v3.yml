@@ -118,6 +118,8 @@ jobs:
         run: |
           git add .
           git commit -m"Create tenant ${{ github.event.inputs.tenant-name }} for organization ${{ github.event.inputs.organization }}"
+          git status
+          git log -1
 
       - name: Push branch
         run: |
