@@ -117,7 +117,7 @@ jobs:
       - name: Commit changes
         run: |
           git add .
-          git commit -m "Create tenant ${{ github.event.inputs.tenant-name }} for organization ${{ github.event.inputs.organization }}"
+          git commit -m"Create tenant ${{ github.event.inputs.tenant-name }} for organization ${{ github.event.inputs.organization }}"
 
       - name: Push branch
         run: |
