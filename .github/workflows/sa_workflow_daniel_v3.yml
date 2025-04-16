@@ -51,6 +51,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main                       # Start from main on CE the main branch is called master
+          fetch-depth: 0                  # Important! Ensures full history for comparison
 
       - name: Set up Git
         run: |
@@ -113,6 +114,9 @@ jobs:
           EOF
           echo "Created kustomization file: $ORG_KUSTOMIZATION"
 
+      - name: Make a change
+        run: |
+          echo "Updated at $(date)" >> update.log    
 
       - name: Commit changes
         run: |
