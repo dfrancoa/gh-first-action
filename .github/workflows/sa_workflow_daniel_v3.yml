@@ -60,7 +60,7 @@ jobs:
       # Create new branch
       - name: Create a new branch
         run: |
-          BRANCH_NAME="feature/${{ github.event.inputs.branch-name }}"
+          BRANCH_NAME="${{ github.event.inputs.branch-name }}"
           git checkout -b "$BRANCH_NAME"
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
