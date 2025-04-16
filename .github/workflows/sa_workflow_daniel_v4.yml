@@ -83,7 +83,7 @@ jobs:
         run: |
           KUSTOMIZATION_PATH="apps/acp-sa-import/overlays/prod/us-east-1/kustomization.yaml"
           if [ -f "$KUSTOMIZATION_PATH" ]; then
-            sed -i "/..base/a \ \ - $organization" "$KUSTOMIZATION_PATH"
+            sed -i "/..base/a \ \ - ${{ env.organization }}" "$KUSTOMIZATION_PATH"
             echo "Updated $KUSTOMIZATION_PATH"
           else
             echo "Error: $KUSTOMIZATION_PATH does not exist"
@@ -113,7 +113,7 @@ jobs:
           apiVersion: kustomize.config.k8s.io/v1beta1
           kind: Kustomization
           namespace: acp-sa-import
-          nameSuffix: -$organization
+          nameSuffix: -${{ env.organization }}
           resources:
             - ../../../../base/job.yaml
           configMapGenerator:
@@ -125,11 +125,7 @@ jobs:
                 - JWKS_KEYS=jwks.json
                 - CA=../saidp-intermediate-cas.pem
           EOF
-          echo "Created kustomization file: $ORG_KUSTOMIZATION"
-
-      - name: Make a change
-        run: |
-          echo "Updated at $(date)" >> update.log    
+          echo "Created kustomization file: $ORG_KUSTOMIZATION" 
 
       - name: Push branch
         run: |
@@ -141,5 +137,5 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           source: ${{ env.BRANCH_NAME }}
           target: main
-          title: "Automated PR from GitHub Actions"
+          title: "Automated PR from GitHub Action"
           body: "This PR was created automatically."
