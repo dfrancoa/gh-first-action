@@ -74,7 +74,7 @@ jobs:
       # Create new branch
       - name: Create a new branch
         run: |
-          BRANCH_NAME="$branch-name"
+          BRANCH_NAME="${{ env.branch-name }}"
           git checkout -b "$BRANCH_NAME"
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
@@ -92,14 +92,14 @@ jobs:
 
       - name: Create organization directory
         run: |
-          ORG_DIR="apps/acp-sa-import/overlays/prod/us-east-1/$organization"
+          ORG_DIR="apps/acp-sa-import/overlays/prod/us-east-1/${{ env.organization }}"
           mkdir -p "$ORG_DIR"
           echo "Created directory: $ORG_DIR"
 
       - name: Create JWKS file
         run: |
-          JWKS_FILE="apps/acp-sa-import/overlays/prod/us-east-1/$organization/jwks.json"
-          echo -e 'jwks-file' > "$JWKS_FILE"
+          JWKS_FILE="apps/acp-sa-import/overlays/prod/us-east-1/${{ env.organization }}/jwks.json"
+          echo -e '${{ env.jwks-file }}' > "$JWKS_FILE"
           cat "$JWKS_FILE"
           sed -i '1s/^\(.\)/\1\n/' "$JWKS_FILE"
           sed -i 's/,/&\n/g' "$JWKS_FILE"
@@ -108,7 +108,7 @@ jobs:
 
       - name: Create organization kustomization file
         run: |
-          ORG_KUSTOMIZATION="apps/acp-sa-import/overlays/prod/us-east-1/$organization/kustomization.yaml"
+          ORG_KUSTOMIZATION="apps/acp-sa-import/overlays/prod/us-east-1/${{ env.organization }}/kustomization.yaml"
           cat > "$ORG_KUSTOMIZATION" << EOF
           apiVersion: kustomize.config.k8s.io/v1beta1
           kind: Kustomization
@@ -119,8 +119,8 @@ jobs:
           configMapGenerator:
             - name: envs
               literals:
-                - TENANT_ID=$tenant-name
-                - ORGANIZATION=$organization
+                - TENANT_ID=${{ env.tenant-name }}e
+                - ORGANIZATION= ${{ env.organization }}
               files:
                 - JWKS_KEYS=jwks.json
                 - CA=../saidp-intermediate-cas.pem
