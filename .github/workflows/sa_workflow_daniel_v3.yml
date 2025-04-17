@@ -130,5 +130,5 @@ jobs:
           target: main
           title: "Automated PR from GitHub Action per CE tenant creation for ${{ github.event.inputs.tenant-name }}"
           body: "This PR was created automatically, to merge ${{ github.event.inputs.branch-name }} into main"
-          branch: auto/update-log
+          branch: ${{ github.event.inputs.branch-name }}
           base: main 
