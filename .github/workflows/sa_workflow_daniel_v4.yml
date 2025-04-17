@@ -119,7 +119,7 @@ jobs:
           configMapGenerator:
             - name: envs
               literals:
-                - TENANT_ID=${{ env.tenant-name }}e
+                - TENANT_ID=${{ env.tenant-name }}
                 - ORGANIZATION= ${{ env.organization }}
               files:
                 - JWKS_KEYS=jwks.json
@@ -137,5 +137,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           source: ${{ env.BRANCH_NAME }}
           target: main
-          title: "Automated PR from GitHub Action"
-          body: "This PR was created automatically."
+          title: "Automated PR from GitHub Action per CE tenant creation for ${{ env.tenant-name }}"
+          body: "This PR was created automatically, to merge ${{ env.branch-name }} into main"
+          branch: auto/update-log
+          base: main
