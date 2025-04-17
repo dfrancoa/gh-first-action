@@ -128,5 +128,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           source: ${{ env.BRANCH_NAME }}
           target: main
-          title: "Automated PR from GitHub Actions"
-          body: "This PR was created automatically."
+          title: "Automated PR from GitHub Action per CE tenant creation for ${{ github.event.inputs.tenant-name }}"
+          body: "This PR was created automatically, to merge ${{ github.event.inputs.branch-name }} into main"
+          branch: auto/update-log
+          base: main 
