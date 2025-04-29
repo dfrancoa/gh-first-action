@@ -1,0 +1,139 @@
+name: Create CE tenant
+
+on:
+  workflow_dispatch:
+    inputs:
+      workforce-tenant-name:
+        description: "Branch name based on Workforce tenant name where CE tenant will be created"
+        required: true
+      ce-tenant-name:
+        description: 'Name of the tenant'
+        required: true
+      organization:
+        description: 'Organization identifier'
+        required: true
+      jwks-file:
+        description: 'content of jwks-json file'
+        required: true
+
+jobs:
+  create-tenant:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+
+    steps:
+      # Making sure all variables are entered
+      - name: Fail if branch is empty
+        if: ${{ github.event.inputs.workforce-tenant-name == '' || github.event.inputs.workforce-tenant-name == null }}
+        run: |
+          echo "Error: Branch name is required, can't be empty!" >&2
+          exit 1
+
+      - name: Fail if tenant name is empty
+        if: ${{ github.event.inputs.ce-tenant-name == '' || github.event.inputs.ce-tenant-name  == null }}
+        run: |
+          echo "Error: Tenant name is required, can't be empty!" >&2
+          exit 1
+
+      - name: Fail if organization name is empty
+        if: ${{ github.event.inputs.organization == '' || github.event.inputs.organization  == null }}
+        run: |
+          echo "Error: Organization is required, can't be empty!" >&2
+          exit 1
+
+      - name: Fail if jwks key is empty
+        if: ${{ github.event.inputs.jwks-file == '' || github.event.inputs.jwks-file  == null }}
+        run: |
+          echo "Error: JWKS key information is required, can't be empty!" >&2
+          exit 1
+
+      # Checking out main branch to start working from it
+      - name: Checkout master branch
+        uses: actions/checkout@v4
+        with:
+          ref: master                     # Start from master
+          fetch-depth: 0                  # Important! Ensures full history for comparison
+
+      - name: Set up Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Create new branch
+      - name: Create a new branch
+        run: |
+          BRANCH_NAME="${{ github.event.inputs.workforce-tenant-name }}"
+          git checkout -b "$BRANCH_NAME"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      # Making changes to the new branch
+      # Adding the organization to the main kustomization.yml file
+      - name: Update main kustomization.yaml
+        run: |
+          KUSTOMIZATION_PATH="apps/acp-sa-import/overlays/prod/us-east-1/kustomization.yaml"
+          if [ -f "$KUSTOMIZATION_PATH" ]; then
+            sed -i "/..base/a \ \ - ${{ github.event.inputs.organization }}" "$KUSTOMIZATION_PATH"
+            echo "Updated $KUSTOMIZATION_PATH"
+          else
+            echo "Error: $KUSTOMIZATION_PATH does not exist"
+            exit 1
+          fi
+     
+      # Creating the organization directory and addong content to it    
+      - name: Create organization directory
+        run: |
+          ORG_DIR="apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}"
+          mkdir -p "$ORG_DIR"
+          echo "Created directory: $ORG_DIR"
+
+      - name: Create JWKS file
+        run: |
+          JWKS_FILE="apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}/jwks.json"
+          echo -e '${{ github.event.inputs.jwks-file }}' > "$JWKS_FILE"
+          cat "$JWKS_FILE"
+          sed -i '1s/^\(.\)/\1\n/' "$JWKS_FILE"
+          sed -i 's/,/&\n/g' "$JWKS_FILE"
+          sed -i 's/}/\n}/' "$JWKS_FILE"
+          cat "$JWKS_FILE"
+
+      - name: Create organization kustomization file
+        run: |
+          ORG_KUSTOMIZATION="apps/acp-sa-import/overlays/prod/us-east-1/${{ github.event.inputs.organization }}/kustomization.yaml"
+          cat > "$ORG_KUSTOMIZATION" << EOF
+          apiVersion: kustomize.config.k8s.io/v1beta1
+          kind: Kustomization
+          namespace: acp-sa-import
+          nameSuffix: -${{ github.event.inputs.organization }}
+          resources:
+            - ../../../../base/job.yaml
+          configMapGenerator:
+            - name: envs
+              literals:
+                - TENANT_ID=${{ github.event.inputs.ce-tenant-name }}
+                - ORGANIZATION=${{ github.event.inputs.organization }}
+              files:
+                - JWKS_KEYS=jwks.json
+                - CA=../saidp-intermediate-cas.pem
+          EOF
+          echo "Created kustomization file: $ORG_KUSTOMIZATION"
+
+      - name: Push branch
+        run: |
+          git push origin HEAD:$BRANCH_NAME
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          source: ${{ env.BRANCH_NAME }}
+          target: main
+          title: "Automated PR from GitHub Action per CE tenant creation for ${{ env.ce-tenant-name }}"
+          body:  |
+            ### Description:
+            This PR was created automatically, to merge ${{ env.BRANCH_NAME }} into master.
+            Creating a the CE tenant ${{ env.ce-tenant-name }} for Workforce tenant ${{ env.workforce-tenant-name }}
+          branch: ${{  env.BRANCH_NAME }}
+          base: master
