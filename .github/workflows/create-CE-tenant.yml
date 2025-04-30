@@ -96,7 +96,7 @@ jobs:
           cat "$JWKS_FILE"
           sed -i '1s/^\(.\)/\1\n/' "$JWKS_FILE"
           sed -i 's/,/&\n/g' "$JWKS_FILE"
-          sed -i 's/^ \+\("\)/\1/' "$JWKS_FILE"
+          sed -i 's/^ \{1\}//' "$JWKS_FILE"
           sed -i 's/}/\n}/' "$JWKS_FILE"
           cat "$JWKS_FILE"
 
