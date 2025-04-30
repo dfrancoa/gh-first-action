@@ -54,7 +54,7 @@ jobs:
       - name: Checkout master branch
         uses: actions/checkout@v4
         with:
-          ref: master                     # Start from master
+          ref: main                     # Start from master
           fetch-depth: 0                  # Important! Ensures full history for comparison
 
       - name: Set up Git
@@ -137,4 +137,4 @@ jobs:
             This PR was created automatically, to merge ${{ env.BRANCH_NAME }} into master.
             Creating a the CE tenant ${{ env.ce-tenant-name }} for Workforce tenant ${{ env.workforce-tenant-name }}
           branch: ${{  env.BRANCH_NAME }}
-          base: master
+          base: main
