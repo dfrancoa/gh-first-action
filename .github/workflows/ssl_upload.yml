@@ -1,0 +1,260 @@
+name: SSL Cert Upload
+
+on:
+  push:
+    branches:
+      - SSL/*
+    pull_request:
+      types: [opened]    
+
+jobs:
+  process-certs:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+      actions: read
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Install OpenSSL, GitHub CLI, and SOPS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openssl curl gnupg
+          curl -fsSL https://github.com/cli/cli/releases/latest/download/gh_$(curl -s https://api.github.com/repos/cli/cli/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')_linux_amd64.deb -o ghcli.deb
+          sudo dpkg -i ghcli.deb
+          gh --version
+
+          # Get latest SOPS release (Linux 64-bit binary)
+          curl -L -o sops https://github.com/getsops/sops/releases/download/v3.8.1/sops-v3.8.1.linux.amd64
+          chmod +x sops
+          sudo mv sops /usr/local/bin/sops
+          sops --version
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: arn:aws:iam::190203370594:role/SOPSDecryptGithub
+          role-session-name: GitHubActionsSession
+          aws-region: us-east-1
+
+      - name: Read tenant metadata from meta.txt
+        id: tenant_meta
+        run: |
+          meta_file="terraform/3-customer/files/ssl/external/uploaded-certs/meta.txt"
+          if [[ -f "$meta_file" ]]; then
+            # Extract tenant GUID and name from the meta.txt
+            TENANT_GUID=$(grep 'TENANT_GUID' "$meta_file" | cut -d '=' -f2 | tr -d '[:space:]')
+            TENANT_NAME=$(grep 'TENANT_NAME' "$meta_file" | cut -d '=' -f2 | tr -d '[:space:]')
+            DOMAIN_KEY=$(grep 'DOMAIN_KEY' "$meta_file" | cut -d '=' -f2 | tr -d '[:space:]')
+            DOMAIN_LABEL=$(grep 'DOMAIN_LABEL' "$meta_file" | cut -d '=' -f2 | tr -d '[:space:]')
+
+            echo "TENANT_GUID=$TENANT_GUID" >> $GITHUB_ENV
+            echo "TENANT_NAME=$TENANT_NAME" >> $GITHUB_ENV
+            echo "DOMAIN_KEY=$DOMAIN_KEY" >> $GITHUB_ENV
+            echo "DOMAIN_LABEL=$DOMAIN_LABEL" >> $GITHUB_ENV
+
+          else
+            echo "❌ meta.txt file not found!"
+            exit 1
+          fi
+
+      - name: SSL Processing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          current_branch=$(git rev-parse --abbrev-ref HEAD)
+          echo "$current_branch" > branch.txt
+
+          for pfx in terraform/3-customer/files/ssl/external/uploaded-certs/*.pfx; do
+            base=$(basename "$pfx" .pfx)
+            password_file="terraform/3-customer/files/ssl/external/uploaded-certs/${base}-password.txt"
+            intermediate="terraform/3-customer/files/ssl/external/uploaded-certs/${base}-intermediate.cer"
+
+            if [ ! -f "$password_file" ] || [ ! -f "$intermediate" ]; then
+              echo "❌ Missing required files for $base"
+              exit 1
+            fi
+
+            echo "✅ All required files found for: $base"
+            PASSWORD=$(cat "$password_file")
+
+            key_out="terraform/3-customer/files/ssl/external/${base}-key.pem"
+            cert_out="terraform/3-customer/files/ssl/external/${base}-cert.crt"
+            chain_out="terraform/3-customer/files/ssl/external/${base}-chain.crt"
+            yaml_out="terraform/3-customer/files/ssl/external/${base}.yaml"
+            
+            # Extract private key
+            if ! openssl pkcs12 -in "$pfx" -nocerts -out "$key_out" -nodes -password pass:$PASSWORD 2>/dev/null; then
+                echo "🔁 Private key extraction failed. Retrying with legacy flag..."
+                if ! openssl pkcs12 -legacy -in "$pfx" -nocerts -out "$key_out" -nodes -password pass:$PASSWORD; then
+                    echo "❌ Failed to extract private key even with legacy mode." >&2
+                    exit 1
+                fi
+            fi
+
+            # Extract certificate
+            if ! openssl pkcs12 -in "$pfx" -clcerts -nokeys -out "$cert_out" -password pass:$PASSWORD 2>/dev/null; then
+                echo "🔁 Certificate extraction failed. Retrying with legacy flag..."
+                if ! openssl pkcs12 -legacy -in "$pfx" -clcerts -nokeys -out "$cert_out" -password pass:$PASSWORD; then
+                    echo "❌ Failed to extract certificate even with legacy mode." >&2
+                    exit 1
+                fi
+            fi
+
+            echo "✅ Extraction completed successfully."
+            cat "$cert_out" "$intermediate" > "$chain_out"
+            
+            b64_cert=$(base64 -w 0 "$chain_out")
+            b64_key=$(base64 -w 0 "$key_out")
+
+            echo "tls.crt: |" > "$yaml_out"
+            cat "$cert_out" "$intermediate" | sed 's/^/  /' >> "$yaml_out"
+            echo "tls.key: |" >> "$yaml_out"
+            sed 's/^/  /' "$key_out" >> "$yaml_out"
+
+            echo "✅ YAML created: $yaml_out"
+
+            rm -f "$key_out" "$cert_out" "$chain_out"
+            rm -f "$pfx" "$password_file" "$intermediate"
+
+            sops -i -e "$yaml_out"
+
+            git config user.name "github-actions"
+            git config user.email "github-actions@users.noreply.github.com"
+            git add "$yaml_out"
+            git commit -m "Add encrypted TLS secret YAML for $base"
+          done
+
+          git push origin "$current_branch"
+
+      - name: Update Tenant List Map
+        run: |
+          tfvars="terraform/3-customer/vars/prod/variables.tfvars"
+
+          if grep -q 'external_cert_tenants = \[' "$tfvars"; then
+            #if grep -q "\"$TENANT_GUID\"" "$tfvars"; then
+            if awk '/external_cert_list_map[[:space:]]*=/, /^}/' "$tfvars" | grep -q '\"$TENANT_GUID\"'; then
+              echo "✅ $TENANT_GUID already exists in external_cert_tenants — skipping"
+              exit 0
+            fi
+
+            # Add a comma after the last GUID (if missing) BEFORE the comment and with a space
+            sed -i '/external_cert_tenants = \[/,/]/ {
+              /"[^"]\+"\s*\/\/.*[^,]$/ s/^\(\s*"[^"]\+"\)\s*\(\/\/.*\)$/\1, \2/
+            }' "$tfvars"
+
+            # Insert new tenant line *before* the closing bracket ]
+            awk -v guid="$TENANT_GUID" -v name="$TENANT_NAME" '
+              BEGIN { added=0 }
+              /external_cert_tenants = \[/,/\]/ {
+                if ($0 ~ /\]/ && added==0) {
+                  print "  \"" guid "\" // " name
+                  added=1
+                }
+              }
+              { print }
+            ' "$tfvars" > tmp.tfvars && mv tmp.tfvars "$tfvars"
+          fi
+
+      - name: Update Tenant Domain Map
+        run: |
+          tfvars="terraform/3-customer/vars/prod/variables.tfvars"
+
+          if grep -q 'external_cert_list_map = {' "$tfvars"; then
+            # Convert comma-separated DOMAIN_KEY to proper TF list
+            formatted_domains=$(echo "$DOMAIN_KEY" | awk -F',' '{
+              for (i=1; i<=NF; i++) {
+                gsub(/^[ \t]+|[ \t]+$/, "", $i)
+                domains = domains "\"" $i "\""
+                if (i < NF) domains = domains ", "
+              }
+              print domains
+            }')
+
+            awk -v guid="$TENANT_GUID" -v name="$TENANT_NAME" -v label="$DOMAIN_LABEL" -v domains="$formatted_domains" '
+              BEGIN {
+                in_block = 0
+                skipping = 0
+                added = 0
+              }
+              # Detect start of map
+              /external_cert_list_map[[:space:]]*=[[:space:]]*{/ {
+                in_block = 1
+              }
+
+              {
+                # Skip existing tenant_guid block (to replace it)
+                if (in_block && $0 ~ "^[[:space:]]*\"" guid "\"[[:space:]]*=") {
+                  skipping = 1
+                }
+                if (skipping) {
+                  if ($0 ~ /^[[:space:]]*}[[:space:]]*,?[[:space:]]*$/) {
+                    skipping = 0
+                  }
+                  next
+                }
+
+                # Before the final }, insert new tenant block
+                if (in_block && $0 ~ /^[[:space:]]*}[[:space:]]*$/ && added == 0) {
+                  print "  },"
+                  print "  \"" guid "\" = {"
+                  print "    \"" name "-" label "\" = [" domains "]"
+                  added = 1
+                  in_block = 0
+                }
+
+                print
+              }
+            ' "$tfvars" > tmp.tfvars && mv tmp.tfvars "$tfvars"
+
+            git add "$tfvars"
+            git commit -m "Add $TENANT_GUID to external_cert_list_map for $DOMAIN_KEY"
+            git push origin $(cat branch.txt)
+          else
+            echo "❌ external_cert_list_map block not found in $tfvars"
+            exit 1
+          fi
+
+      - name: File Clean-up
+        run: |
+          current_branch=$(cat branch.txt)
+          git rm -f terraform/3-customer/files/ssl/external/uploaded-certs/*
+          git add -u terraform/3-customer/files/ssl/external/uploaded-certs/*
+          git commit -m "Remove uploaded input cert files"
+          git push origin "$current_branch"
+
+      - name: Create PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        id: pr
+        run: |
+          current_branch=$(git rev-parse --abbrev-ref HEAD)
+          existing_pr=$(gh pr list --head "$current_branch" --json number --jq '.[0].number')
+
+          if [ -z "$existing_pr" ]; then
+            gh pr create \
+              --title "Add TLS certs for $current_branch" \
+              --body "This PR adds Kubernetes TLS secrets for **$current_branch**."
+             # Get new PR numbre after creation
+             pr_number=$(gh pr list --head "$current_branch" --json number --jq '.[0].number')
+             echo "num=$pr_number" >> $GITHUB_OUTPUT
+          else
+            echo "🔁 PR already exists for branch $current_branch: #$pr_number"
+            echo "num=$pr_number" >> $GITHUB_OUTPUT
+          fi          
+
+      - name: Approve PR
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.num }}
+          GITHUB_TOKEN: ${{ secrets.GH_SERVICE_ACCOUNT_DEVOPS_2_PAT1 }}
+        run: |
+         if [ -n "$PR_NUMBER" ]; then
+            gh pr review --approve "$PR_NUMBER"
+            echo "✅ PR has been approved"
+          else
+            echo "⚠️ No PR URL found to approve"
+          fi
